@@ -119,7 +119,6 @@ class LogisticRegressionModel:
     def calcualte_F1(self, x, w, b, y):
         outputs = []
         confusion_matrix = np.zeros((len(y[0]), len(y[0])))
-
         for i in range(0, len(x)):
             outputs.append(self.softmax(np.matmul(w, x[i]) + b))
         outputs = np.array(outputs)
@@ -139,7 +138,6 @@ class LogisticRegressionModel:
         for i in range(0, len(precisions)):
             F1.append((2*precisions[i]*recalls[i])/(precisions[i]+ recalls[i]))
         F1 = np.array(F1)
-
         return F1
     
     #Scales x and performs one-hot encoding on y
@@ -176,7 +174,7 @@ class LogisticRegressionModel:
         x = scaler.fit_transform(x)
         
         # Under-sampling (too many instances of class 1)
-        under_sampler = RandomUnderSampler(sampling_strategy='auto')
+        under_sampler = RandomUnderSampler(sampling_strategy='majority', random_state=42)
         x, y_embedded = under_sampler.fit_resample(x, y_embedded)
 
         y = y_embedded
@@ -258,7 +256,7 @@ class LogisticRegressionModel:
         b = b.flatten()
         return w,b
     
-    #Returns a matrix of the F1 score for each class in the testing set
+    #Returns an array of the F1 score for each class in the testing set
     def testing(self, hyperperameter, alpha):
         data = self.preprocessing()
         test_arr = data[4]
@@ -267,50 +265,13 @@ class LogisticRegressionModel:
         x_y = self.x_y_processing(test_arr, num_classes)
         x = x_y[0]
         y = x_y[1]  
-        
-        #creates input array of 4 features and output for each class
-        x = []
-        y = []
-        i = 0
-        while i < len(test_arr) - 1:
-            x.append(test_arr[i: i + 4].astype(float))
-            y.append([test_arr[i + 4][:len(test_arr[i + 4]) - 1]])
-            i += 5
-
-        x = np.array(x)
-        y = np.array(y)
-        
-
-        #One-hot encoding
-        y_embedded = np.zeros((len(y) - 1, num_classes))
-        class_indicies = [0]
-        class_num = 0
-        for j in range(0, len(y) - 1):
-            for i in range(0, len(y[j])):
-                y_embedded[j][class_num] = 1
-                #even out the number of examples for each class
-                if (y[j][i] != y[j + 1][i]):
-                    class_indicies.append(j - class_indicies[len(class_indicies) - 1])
-                    class_indicies.append(j)
-                    class_num += 1
-                    j += 1
-
-        #standard scale x
-        scaler = StandardScaler()
-        x = scaler.fit_transform(x)
-        
-        # Under-sampling (too many instances of class 1)
-        under_sampler = RandomUnderSampler(sampling_strategy='auto')
-        x, y_embedded = under_sampler.fit_resample(x, y_embedded)
-
-        y = y_embedded
 
         if len(x) > len(y):
-            del x[len(y): len(x) -(len(x) - len(y))]
+            x = x[0:len(y)]
 
         return self.calcualte_F1(x, w_b[0], w_b[1], y)
 
 model1 = LogisticRegressionModel.no_arg()
 
-print(model1.testing(0.2, 0.87))
+print(model1.testing(0.2, 0.9))
         
