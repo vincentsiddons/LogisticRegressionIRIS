@@ -107,6 +107,42 @@ class LogisticRegressionModel:
             for i in range(0, len(grad[j])):
                 grad[j][i] = diff[j]*x[i]
         return grad
+    
+    #Returns softmax outputs of each element in an array
+    def softmax(self, arr):
+        softmax_arr = np.zeros(len(arr))
+        for i in range(0, len(arr)):
+            softmax_arr[i] = (np.exp(arr[i]))/(np.sum(np.exp(arr)))
+        return softmax_arr
+    
+    def calcualte_F1(self, x, w, b, y):
+        outputs = []
+        confusion_matrix = np.zeros((len(y[0]), len(y[0])))
+
+        for i in range(0, len(x)):
+            outputs.append(self.softmax(np.matmul(w, x[i]) + b))
+        outputs = np.array(outputs)
+
+        for i in range(0, len(outputs)):
+            classif = np.argmax(outputs[i])
+            gold_classif = np.argmax(y[i])
+            confusion_matrix[classif][gold_classif] += 1
+
+        F1 = []
+        precisions = []
+        recalls = []
+
+        precisions.append(np.diagonal(confusion_matrix)/np.sum(confusion_matrix, axis=1))
+        recalls.append(np.diagonal(confusion_matrix)/np.sum(confusion_matrix, axis=0))
+
+        for i in range(0, len(precisions)):
+            F1.append((2*precisions[i]*recalls[i])/(precisions[i]+ recalls[i]))
+        F1 = np.array(F1)
+
+        return F1
+    
+
+
     #Creates array of each training feature value, initalizes weights and bias, creates output array, and also returns dev and test arrays
     def preprocessing(self):
         
@@ -165,8 +201,10 @@ class LogisticRegressionModel:
             x.append(training_arr[i: i + 4].astype(float))
             y.append([training_arr[i + 4][:len(training_arr[i + 4]) - 1]])
             i += 5
+        
+        rng = np.random.default_rng(seed=42)
 
-        o = (np.random.random((num_classes, 4)),  np.zeros(num_classes))
+        o = (rng.random((num_classes, 4)),  np.zeros(num_classes))
         x = np.array(x)
         y = np.array(y)
 
@@ -211,11 +249,11 @@ class LogisticRegressionModel:
         b = b.flatten()
         return w,b
     
-    def testing(self):
+    def testing(self, hyperperameter, alpha):
         data = self.preprocessing()
         test_arr = data[4]
         num_classes = data[5]
-        w_b = self.train(0.2, 0.88)  
+        w_b = self.train(hyperperameter, alpha)  
         
         #creates input array of 4 features and output for each class
         x = []
@@ -228,6 +266,7 @@ class LogisticRegressionModel:
 
         x = np.array(x)
         y = np.array(y)
+        
 
         #One-hot encoding
         y_embedded = np.zeros((len(y) - 1, num_classes))
@@ -253,11 +292,12 @@ class LogisticRegressionModel:
 
         y = y_embedded
 
-        return x,y
+        if len(x) > len(y):
+            del x[len(y): len(x) -(len(x) - len(y))]
 
+        return self.calcualte_F1(x, w_b[0], w_b[1], y)
 
+#model1 = LogisticRegressionModel.no_arg()
 
-model1 = LogisticRegressionModel.no_arg()
-
-print(model1.testing())
+#print(model1.testing(0.2, 0.87))
         
