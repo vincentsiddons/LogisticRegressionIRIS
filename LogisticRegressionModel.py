@@ -271,7 +271,4 @@ class LogisticRegressionModel:
 
         return self.calcualte_F1(x, w_b[0], w_b[1], y)
 
-model1 = LogisticRegressionModel.no_arg()
-
-print(model1.testing(0.2, 0.9))
         
