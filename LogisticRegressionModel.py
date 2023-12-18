@@ -138,6 +138,7 @@ class LogisticRegressionModel:
         for i in range(0, len(precisions)):
             F1.append((2*precisions[i]*recalls[i])/(precisions[i]+ recalls[i]))
         F1 = np.array(F1)
+        F1 = F1.flatten()
         return F1
     
     #Scales x and performs one-hot encoding on y
