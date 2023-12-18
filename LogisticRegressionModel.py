@@ -115,6 +115,7 @@ class LogisticRegressionModel:
             softmax_arr[i] = (np.exp(arr[i]))/(np.sum(np.exp(arr)))
         return softmax_arr
     
+    #Calculates the F1 score for each class
     def calcualte_F1(self, x, w, b, y):
         outputs = []
         confusion_matrix = np.zeros((len(y[0]), len(y[0])))
@@ -141,7 +142,46 @@ class LogisticRegressionModel:
 
         return F1
     
+    #Scales x and performs one-hot encoding on y
+    def x_y_processing(self, arr, class_arr):
+        #creates input array of 4 features and output for each class
+        x = []
+        y = []
+        i = 0
+        while i < len(arr) - 1:
+            x.append(arr[i: i + 4].astype(float))
+            y.append([arr[i + 4][:len(arr[i + 4]) - 1]])
+            i += 5
 
+        x = np.array(x)
+        y = np.array(y)
+        
+
+        #One-hot encoding
+        y_embedded = np.zeros((len(y) - 1, class_arr))
+        class_indicies = [0]
+        class_num = 0
+        for j in range(0, len(y) - 1):
+            for i in range(0, len(y[j])):
+                y_embedded[j][class_num] = 1
+                #even out the number of examples for each class
+                if (y[j][i] != y[j + 1][i]):
+                    class_indicies.append(j - class_indicies[len(class_indicies) - 1])
+                    class_indicies.append(j)
+                    class_num += 1
+                    j += 1
+
+        #standard scale x
+        scaler = StandardScaler()
+        x = scaler.fit_transform(x)
+        
+        # Under-sampling (too many instances of class 1)
+        under_sampler = RandomUnderSampler(sampling_strategy='auto')
+        x, y_embedded = under_sampler.fit_resample(x, y_embedded)
+
+        y = y_embedded
+
+        return x, y
 
     #Creates array of each training feature value, initalizes weights and bias, creates output array, and also returns dev and test arrays
     def preprocessing(self):
@@ -193,44 +233,13 @@ class LogisticRegressionModel:
         dev_arr = np.array(dev_arr)
         test_arr = np.array(test_arr)
 
-        #creates input array of 4 features and output for each class
-        x = []
-        y = []
-        i = 0
-        while i < len(training_arr) - 1:
-            x.append(training_arr[i: i + 4].astype(float))
-            y.append([training_arr[i + 4][:len(training_arr[i + 4]) - 1]])
-            i += 5
-        
+        x_y = self.x_y_processing(training_arr, num_classes)
+        x = x_y[0]
+        y = x_y[1]
+
         rng = np.random.default_rng(seed=42)
 
-        o = (rng.random((num_classes, 4)),  np.zeros(num_classes))
-        x = np.array(x)
-        y = np.array(y)
-
-        #One-hot encoding
-        y_embedded = np.zeros((len(y) - 1, num_classes))
-        class_indicies = [0]
-        class_num = 0
-        for j in range(0, len(y) - 1):
-            for i in range(0, len(y[j])):
-                y_embedded[j][class_num] = 1
-                #even out the number of examples for each class
-                if (y[j][i] != y[j + 1][i]):
-                    class_indicies.append(j - class_indicies[len(class_indicies) - 1])
-                    class_indicies.append(j)
-                    class_num += 1
-                    j += 1
-
-        #standard scale x
-        scaler = StandardScaler()
-        x = scaler.fit_transform(x)
-        
-        # Under-sampling (too many instances of class 1)
-        under_sampler = RandomUnderSampler(sampling_strategy='auto')
-        x, y_embedded = under_sampler.fit_resample(x, y_embedded)
-
-        y = y_embedded
+        o = (rng.random((num_classes, 4)),  rng.random(num_classes))
 
         return x, o, y, dev_arr, test_arr, num_classes
 
@@ -249,11 +258,15 @@ class LogisticRegressionModel:
         b = b.flatten()
         return w,b
     
+    #Returns a matrix of the F1 score for each class in the testing set
     def testing(self, hyperperameter, alpha):
         data = self.preprocessing()
         test_arr = data[4]
         num_classes = data[5]
-        w_b = self.train(hyperperameter, alpha)  
+        w_b = self.train(hyperperameter, alpha)
+        x_y = self.x_y_processing(test_arr, num_classes)
+        x = x_y[0]
+        y = x_y[1]  
         
         #creates input array of 4 features and output for each class
         x = []
@@ -297,7 +310,7 @@ class LogisticRegressionModel:
 
         return self.calcualte_F1(x, w_b[0], w_b[1], y)
 
-#model1 = LogisticRegressionModel.no_arg()
+model1 = LogisticRegressionModel.no_arg()
 
-#print(model1.testing(0.2, 0.87))
+print(model1.testing(0.2, 0.87))
         
