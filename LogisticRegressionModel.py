@@ -29,7 +29,7 @@ class LogisticRegressionModel:
     def __str__(self):
         return "The file you are processing is: " + self.csv + " and you train/dev/test split is: " + str(self.training) + "/" + str(self.dev) + "/" + str(self.test) + "\n"
     
-    #Deletes incomplete features
+    #Deletes incomplete features at end of array
     def delete_hanging_numbers(self, arr):
         indicies = []
         i = len(arr) - 1
@@ -44,6 +44,23 @@ class LogisticRegressionModel:
         except:
             return arr
         return arr
+    
+    #Deletes incomplete features at start of array
+    def delete_starting_numbers(self, arr):
+        indicies = []
+        i = 0
+        while i < len(arr):
+            if arr[i][0:1].isnumeric() == True:
+                indicies.append(i)
+            elif arr[i][0:1].isnumeric() == False:
+                break
+            i += 1
+        try:
+            arr = arr[indicies[len(indicies) - 1] + 2:len(arr)]
+        except:
+            return arr
+        return arr
+
     
     #Stores the index of the start of each class in the csv arr in an arr
     def find_class_indicies(self):
@@ -114,13 +131,26 @@ class LogisticRegressionModel:
                 dev_arr = lines[int(self.training*indicies[j + 1]) + 1:int(self.dev*indicies[j + 1] + int(self.training*indicies[j+1]))]
                 dev_arr = self.delete_hanging_numbers(dev_arr)
                 test_arr = lines[int(self.dev*indicies[j + 1] + int(self.training*indicies[j+1])) + 1:int(self.test*indicies[j+1] + int(self.training*indicies[j+1] + int(self.dev*indicies[j+1])))]
+                test_arr = self.delete_starting_numbers(test_arr)
                 test_arr = self.delete_hanging_numbers(test_arr)
             else:
                 training_arr = training_arr + lines[indicies[j] + 1:int(self.training*indicies[j + 1])]
                 training_arr = self.delete_hanging_numbers(training_arr)
                 dev_arr = dev_arr + lines[int(self.training*indicies[j+1]) + 1:int(self.dev*indicies[j + 1] + int(self.training*indicies[j+1]))]
                 dev_arr = self.delete_hanging_numbers(dev_arr)
-                test_arr = test_arr + lines[int(self.training*indicies[j+1] + int(self.dev*indicies[j+1])) + 1:int(self.test*indicies[j+1] + int(self.training*indicies[j+1] + int(self.dev*indicies[j+1])))]
+                #The bug happens here
+                needed_lines = lines[int(self.training*indicies[j+1] + int(self.dev*indicies[j+1])) + 1:int(self.test*indicies[j+1] + int(self.training*indicies[j+1] + int(self.dev*indicies[j+1])))]
+                needed_lines = self.delete_starting_numbers(needed_lines)
+                needed_lines = self.delete_hanging_numbers(needed_lines)
+                #Sometimes the test array begins with a class
+                if needed_lines[0].isnumeric() == False:
+                    del needed_lines[0]
+                #Sometimes the test array has <4 features at the start
+                for i in range(0, 4):
+                    if needed_lines[i][0:1].isnumeric() == False:
+                        del needed_lines[0:i + 1]
+                test_arr = test_arr + needed_lines
+                test_arr = self.delete_starting_numbers(test_arr)
                 test_arr = self.delete_hanging_numbers(test_arr)
 
         training_arr = np.array(training_arr)
@@ -164,7 +194,7 @@ class LogisticRegressionModel:
 
         y = y_embedded
 
-        return x, o, y, dev_arr, test_arr
+        return x, o, y, dev_arr, test_arr, num_classes
 
     #Creates weight and bias values via logistic regression
     def train(self, hyperperameter, alpha):
@@ -180,10 +210,54 @@ class LogisticRegressionModel:
                 b -= self.gradient_descent_b(x[j], b, hyperperameter, y, alpha)
         b = b.flatten()
         return w,b
+    
+    def testing(self):
+        data = self.preprocessing()
+        test_arr = data[4]
+        num_classes = data[5]
+        w_b = self.train(0.2, 0.88)  
+        
+        #creates input array of 4 features and output for each class
+        x = []
+        y = []
+        i = 0
+        while i < len(test_arr) - 1:
+            x.append(test_arr[i: i + 4].astype(float))
+            y.append([test_arr[i + 4][:len(test_arr[i + 4]) - 1]])
+            i += 5
+
+        x = np.array(x)
+        y = np.array(y)
+
+        #One-hot encoding
+        y_embedded = np.zeros((len(y) - 1, num_classes))
+        class_indicies = [0]
+        class_num = 0
+        for j in range(0, len(y) - 1):
+            for i in range(0, len(y[j])):
+                y_embedded[j][class_num] = 1
+                #even out the number of examples for each class
+                if (y[j][i] != y[j + 1][i]):
+                    class_indicies.append(j - class_indicies[len(class_indicies) - 1])
+                    class_indicies.append(j)
+                    class_num += 1
+                    j += 1
+
+        #standard scale x
+        scaler = StandardScaler()
+        x = scaler.fit_transform(x)
+        
+        # Under-sampling (too many instances of class 1)
+        under_sampler = RandomUnderSampler(sampling_strategy='auto')
+        x, y_embedded = under_sampler.fit_resample(x, y_embedded)
+
+        y = y_embedded
+
+        return x,y
 
 
 
-#model1 = LogisticRegressionModel.no_arg()
+model1 = LogisticRegressionModel.no_arg()
 
-#print(model1.train(0.2, 0.88))
+print(model1.testing())
         
