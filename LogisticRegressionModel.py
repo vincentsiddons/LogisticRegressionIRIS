@@ -242,9 +242,21 @@ class LogisticRegressionModel:
             else:
                 training_arr = training_arr + lines[indicies[j] + 1:int(self.training*indicies[j + 1])]
                 training_arr = self.delete_hanging_numbers(training_arr)
-                dev_arr = dev_arr + lines[int(self.training*indicies[j+1]) + 1:int(self.dev*indicies[j + 1] + int(self.training*indicies[j+1]))]
+               
+                needed_lines_dev =  lines[int(self.training*indicies[j+1]) + 1:int(self.dev*indicies[j + 1] + int(self.training*indicies[j+1]))]
+                needed_lines_dev = self.delete_starting_numbers(needed_lines_dev)
+                needed_lines_dev = self.delete_hanging_numbers(needed_lines_dev)
+                #Sometimes the dev array begins with a class
+                if needed_lines_dev[0].isnumeric() == False:
+                    del needed_lines_dev[0]
+                #Sometimes the dev array has <4 features at the start
+                for i in range(0, 4):
+                    if needed_lines_dev[i][0:1].isnumeric() == False:
+                        del needed_lines_dev[0:i + 1]
+                dev_arr = dev_arr + needed_lines_dev
+                dev_arr = self.delete_starting_numbers(dev_arr)
                 dev_arr = self.delete_hanging_numbers(dev_arr)
-                #The bug happens here
+
                 needed_lines = lines[int(self.training*indicies[j+1] + int(self.dev*indicies[j+1])) + 1:int(self.test*indicies[j+1] + int(self.training*indicies[j+1] + int(self.dev*indicies[j+1])))]
                 needed_lines = self.delete_starting_numbers(needed_lines)
                 needed_lines = self.delete_hanging_numbers(needed_lines)
@@ -290,7 +302,7 @@ class LogisticRegressionModel:
     
     #Returns an array of the F1 score for each class in the testing set
     #You can also call this for the dev set
-    def testing(self, hyperperameter, alpha):
+    def dev_and_testing(self, hyperperameter, alpha):
         data = self.preprocessing()
         test_arr = data[4]
         num_classes = data[5]
