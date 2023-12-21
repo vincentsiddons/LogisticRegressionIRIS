@@ -169,11 +169,8 @@ class LogisticRegressionModel:
         for j in range(0, len(y) - 1):
             for i in range(0, len(y[j])):
                 y_embedded[j][class_num] = 1
-                #2 for class 3 instead of one hot
-                #if class_num < 1:
-                    #y_embedded_int[j][class_num] -= 2
+                #gives each class a unique int
                 y_embedded_int[j][class_num] += class_num + 1
-                #even out the number of examples for each class
                 if (y[j][i] != y[j + 1][i]):
                     class_indicies.append(j - class_indicies[len(class_indicies) - 1])
                     class_indicies.append(j)
@@ -185,22 +182,24 @@ class LogisticRegressionModel:
         x = scaler.fit_transform(x)
 
 
-
+        #turns each one hot, but with each class a unique int, into an array of just ints > 0
         y_embedded_count = y_embedded_int.flatten().astype(int)
         new_y_embedded_count = []
         for i in range(0,len(y_embedded_count)):
             if y_embedded_count[i] != 0:
                 new_y_embedded_count.append(y_embedded_count[i])
         y_embedded_count = np.array(new_y_embedded_count)
-   
+
+        #class with the most examples in the training set
         class_goal = max(np.bincount(y_embedded_count))
 
         
         
         #Over-sampling (not enough instances of class 1)
         over_sampler = RandomOverSampler(sampling_strategy={class_label: class_goal for class_label in set(y_embedded_count)}, random_state=41)
-     
         x, y_embedded = over_sampler.fit_resample(x, y_embedded_count)
+
+        #turn oversampled int array back into one-hot encoded vectors
         new_y = []
         class_num = 0
         for j in range(0, len(y_embedded) - 1):
@@ -209,7 +208,9 @@ class LogisticRegressionModel:
             new_arr[class_num] = 1
             new_y.append(new_arr)
         y_embedded = np.array(new_y)
+
         y = y_embedded
+
         return x, y
 
     #Creates array of each training feature value, initalizes weights and bias, creates output array, and also returns dev and test arrays
