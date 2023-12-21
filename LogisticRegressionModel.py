@@ -4,6 +4,7 @@ import functools
 import operator
 from sklearn.preprocessing import StandardScaler
 from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import RandomOverSampler
 
 #This class impliments a Logistic Regression model for more than 2 classes.
 #NOTE: csv class label must correspond to the next class label unless all instances of that class are exhausted
@@ -112,7 +113,8 @@ class LogisticRegressionModel:
     def softmax(self, arr):
         softmax_arr = np.zeros(len(arr))
         for i in range(0, len(arr)):
-            softmax_arr[i] = (np.exp(arr[i]))/(np.sum(np.exp(arr)))
+            exp_arr = np.exp(arr)
+            softmax_arr[i] = (exp_arr[i])/(np.sum(exp_arr))
         return softmax_arr
     
     #Calculates the F1 score for each class
@@ -120,9 +122,12 @@ class LogisticRegressionModel:
         outputs = []
         confusion_matrix = np.zeros((len(y[0]), len(y[0])))
         for i in range(0, len(x)):
-            outputs.append(self.softmax(np.matmul(w, x[i]) + b))
+            output = self.softmax(np.matmul(w, x[i]) + b)
+            for j in range(0, len(output)):
+                if np.isnan(output[j]) == True:
+                    output[j] = 1.0
+            outputs.append(output)
         outputs = np.array(outputs)
-
         for i in range(0, len(outputs)):
             classif = np.argmax(outputs[i])
             gold_classif = np.argmax(y[i])
@@ -158,11 +163,16 @@ class LogisticRegressionModel:
 
         #One-hot encoding
         y_embedded = np.zeros((len(y) - 1, class_arr))
+        y_embedded_int = np.zeros((len(y) - 1, class_arr))
         class_indicies = [0]
         class_num = 0
         for j in range(0, len(y) - 1):
             for i in range(0, len(y[j])):
                 y_embedded[j][class_num] = 1
+                #2 for class 3 instead of one hot
+                #if class_num < 1:
+                    #y_embedded_int[j][class_num] -= 2
+                y_embedded_int[j][class_num] += class_num + 1
                 #even out the number of examples for each class
                 if (y[j][i] != y[j + 1][i]):
                     class_indicies.append(j - class_indicies[len(class_indicies) - 1])
@@ -173,13 +183,33 @@ class LogisticRegressionModel:
         #standard scale x
         scaler = StandardScaler()
         x = scaler.fit_transform(x)
+
+
+
+        y_embedded_count = y_embedded_int.flatten().astype(int)
+        new_y_embedded_count = []
+        for i in range(0,len(y_embedded_count)):
+            if y_embedded_count[i] != 0:
+                new_y_embedded_count.append(y_embedded_count[i])
+        y_embedded_count = np.array(new_y_embedded_count)
+   
+        class_goal = max(np.bincount(y_embedded_count))
+
         
-        # Under-sampling (too many instances of class 1)
-        under_sampler = RandomUnderSampler(sampling_strategy='majority', random_state=42)
-        x, y_embedded = under_sampler.fit_resample(x, y_embedded)
-
+        
+        #Over-sampling (not enough instances of class 1)
+        over_sampler = RandomOverSampler(sampling_strategy={class_label: class_goal for class_label in set(y_embedded_count)}, random_state=41)
+     
+        x, y_embedded = over_sampler.fit_resample(x, y_embedded_count)
+        new_y = []
+        class_num = 0
+        for j in range(0, len(y_embedded) - 1):
+            class_num = y_embedded[j] -1
+            new_arr = [0, 0, 0]
+            new_arr[class_num] = 1
+            new_y.append(new_arr)
+        y_embedded = np.array(new_y)
         y = y_embedded
-
         return x, y
 
     #Creates array of each training feature value, initalizes weights and bias, creates output array, and also returns dev and test arrays
@@ -236,7 +266,7 @@ class LogisticRegressionModel:
         x = x_y[0]
         y = x_y[1]
 
-        rng = np.random.default_rng(seed=42)
+        rng = np.random.default_rng(seed=41)
 
         o = (rng.random((num_classes, 4)),  rng.random(num_classes))
 
@@ -258,11 +288,13 @@ class LogisticRegressionModel:
         return w,b
     
     #Returns an array of the F1 score for each class in the testing set
+    #You can also call this for the dev set
     def testing(self, hyperperameter, alpha):
         data = self.preprocessing()
         test_arr = data[4]
         num_classes = data[5]
         w_b = self.train(hyperperameter, alpha)
+        print(w_b)
         x_y = self.x_y_processing(test_arr, num_classes)
         x = x_y[0]
         y = x_y[1]  
@@ -272,4 +304,5 @@ class LogisticRegressionModel:
 
         return self.calcualte_F1(x, w_b[0], w_b[1], y)
 
-        
+
+
